@@ -6,3 +6,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+gpio = "0.4.1"
+
+#[build]
+#target = "armv7-unknown-linux-gnueabihf"
+
+#[target.armv7-unknown-linux-gnueabihf]
+#linker = "arm-linux-gnueabihf-gcc-stage1"
