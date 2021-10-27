@@ -7,9 +7,9 @@ use crate::handlers;
 pub fn routes(
     state: StateMutex,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    get_status(state)
-//        .or(update_status(state))
-//        .or(stop(state))
+    get_status(state.clone())
+        .or(update_status(state.clone()))
+        .or(stop(state.clone()))
 }
 
 fn get_status(
