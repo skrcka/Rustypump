@@ -1,74 +1,67 @@
-use std::io::prelude::*;
-use std::net::TcpListener;
-use std::net::TcpStream;
-use std::fs;
-use gpio::{GpioOut};
-use std::{thread, time};
+//use std::io::prelude::*;
+//use std::convert::Infallible;
+//use std::net::SocketAddr;
+//use hyper::{Body, Request, Response, Server};
+//use hyper::service::{make_service_fn, service_fn};
+//use gpio::{GpioOut};
+//use std::{thread, time, fs};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 const ENABLEPIN : u16 = 23; // Green
 const DIRPIN : u16 = 24; // Blue
 const STEPPIN : u16 = 25; // Purple
 
-fn main() {
-    let mut steps : i32 = 0;
-    let mut enabled = true;
-    let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
-    let mut dir_pin = gpio::sysfs::SysFsGpioOutput::open(DIRPIN).unwrap(); // False = push
-    let mut step_pin = gpio::sysfs::SysFsGpioOutput::open(STEPPIN).unwrap();
-    enable_pin.set_value(true).expect("could not set enable_pin");
-    dir_pin.set_value(false).expect("could not set dir_pin");
+mod routes;
+mod handlers;
+mod models;
+
+pub type StateMutex = Arc<Mutex<models::State>>;
+
+#[tokio::main]
+async fn main() {
+    let state = models::State{steps: 0, time: 0.0};
+    let statepointer : StateMutex = Arc::new(Mutex::new(state));
+    let customer_routes = routes::routes(statepointer);
+
+    warp::serve(customer_routes)
+        .run(([127, 0, 0, 1], 3000))
+        .await;
 
 
     /*
-    let mut value = false;
-    thread::spawn(move || loop {
-        step_pin.set_value(value).expect("could not set step_pin");
-        thread::sleep(time::Duration::from_millis(1000));
-        value = !value;
-    });
-    */
-
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-
-        handle_connection(stream);
-
-        if steps > 0 {
-            println!("{}", steps);
-            if enabled == false {
-                enabled = true;
-                enable_pin.set_value(false).expect("could not set enable_pin");
+    thread::spawn(move || {
+        let mut steps : i32 = 0;
+        let mut enabled = true;
+        let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
+        let mut dir_pin = gpio::sysfs::SysFsGpioOutput::open(DIRPIN).unwrap(); // False = push
+        let mut step_pin = gpio::sysfs::SysFsGpioOutput::open(STEPPIN).unwrap();
+        
+        enable_pin.set_value(true).expect("could not set enable_pin");
+        dir_pin.set_value(false).expect("could not set dir_pin");
+        step_pin.set_value(false).expect("could not set step_pin");
+        
+        loop {
+            if steps > 0 {
+                println!("{}", steps);
+                if enabled == false {
+                    enabled = true;
+                    enable_pin.set_value(false).expect("could not set enable_pin");
+                    thread::sleep(time::Duration::from_millis(500));
+                }
+                step_pin.set_value(true).expect("could not set step_pin");
                 thread::sleep(time::Duration::from_millis(500));
-            }
-            step_pin.set_value(true).expect("could not set step_pin");
-            thread::sleep(time::Duration::from_millis(500));
-            step_pin.set_value(false).expect("could not set step_pin");
-            thread::sleep(time::Duration::from_millis(500));
-            steps -= 1;
-        } else {
-            if enabled == true {
-                enabled = false;
-                enable_pin.set_value(true).expect("could not set enable_pin");
+                step_pin.set_value(false).expect("could not set step_pin");
                 thread::sleep(time::Duration::from_millis(500));
+                steps -= 1;
+            } else {
+                if enabled == true {
+                    enabled = false;
+                    enable_pin.set_value(true).expect("could not set enable_pin");
+                    thread::sleep(time::Duration::from_millis(500));
+                }
             }
         }
-    }
-}
-
-fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
-
-    stream.read(&mut buffer).unwrap();
-
-    let contents = fs::read_to_string("src/html/index.html").unwrap();
-
-    let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-        contents.len(),
-        contents
-    );
-
-    stream.write(response.as_bytes()).unwrap();
-    stream.flush().unwrap();
+    });
+    */
 }

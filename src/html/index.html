@@ -1,21 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-  <!--link rel="icon" href="data:,"-->
-  <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">"
-  <title>Controller</title>
-  <style>html { 
-  font-family: Helvetica; 
-  display: inline-block; 
-  margin: 0px auto; 
-  text-align: center; 
-  .button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;
-  text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}
-  .button2 {background-color: #555555}
-  </style>
-  </head>
-  <body>
-    <h1>Controller</h1>
-    "<p><a href=\"/dir/push\"><button class=\"button\">PULL</button></a></p>"
-  </body>
+
+<head>
+    <!--link rel="icon" href="data:,"-->
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+    <title>Syringe Controller</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+
+<body>
+    <h1 class="text-center">Syringe Controller</h1>
+    <form class="text-center">
+        <div class="form-group">
+            <label class="text-left" for="amountInput">Amount</label>
+            <div id="amountInput" class="form-group-row">
+                <input id="amountRangeInput" type="range" min="0" max="200" oninput="amountTextInput.value=amountRangeInput.value" />
+                <input id="amountTextInput" type="number" value="100" min="0" max="200" oninput="amountRangeInput.value=amountTextInput.value" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="timeInput">Time</label>
+            <div id="timeInput">
+                <input id="timeRangeInput" type="range" min="0" max="200" oninput="timeTextInput.value=timeRangeInput.value" />
+                <input id="timeTextInput" type="number" value="100" min="0" max="200" oninput="timeRangeInput.value=timeTextInput.value" />
+            </div>
+        </div>
+        <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="reverse">
+            <label class="form-check-label" for="reverse">Reverse</label>
+        </div>
+        <a href="/stop" class="btn btn-danger">STOP</a>
+        <button type="submit" class="btn btn-primary">GO</button>
+    </form>
+</body>
+
 </html>

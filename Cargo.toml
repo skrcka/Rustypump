@@ -7,9 +7,8 @@ edition = "2018"
 
 [dependencies]
 gpio = "0.4.1"
-
-#[build]
-#target = "armv7-unknown-linux-gnueabihf"
-
-#[target.armv7-unknown-linux-gnueabihf]
-#linker = "arm-linux-gnueabihf-gcc-stage1"
+hyper = { version = "0.14", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+warp = "0.3.1"
