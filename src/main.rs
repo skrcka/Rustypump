@@ -3,7 +3,7 @@
 //use std::net::SocketAddr;
 //use hyper::{Body, Request, Response, Server};
 //use hyper::service::{make_service_fn, service_fn};
-//use gpio::{GpioOut};
+use gpio::{GpioOut};
 //use std::{thread, time, fs};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -44,6 +44,15 @@ async fn main() {
     let stepsPerMl = models::stepsPerMl;
 
     tokio::spawn(async move {
+        let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
+        let mut dir_pin = gpio::sysfs::SysFsGpioOutput::open(DIRPIN).unwrap(); // False = push
+        let mut step_pin = gpio::sysfs::SysFsGpioOutput::open(STEPPIN).unwrap();
+
+        enable_pin.set_value(true).expect("could not set enable_pin");
+        dir_pin.set_value(false).expect("could not set dir_pin");
+        step_pin.set_value(false).expect("could not set step_pin");
+        time::sleep(time::Duration::from_nanos(500));
+
         let mut time: Instant = Instant::now();
         let mut totalsteps: i32 = 0;
         let mut initialTime: f64 = 0.0;
@@ -57,6 +66,8 @@ async fn main() {
             if s.enabled {
                 wasEnabled = true;
                 if initial {
+                    enable_pin.set_value(false).expect("could not set enable_pin");
+                    time::sleep(time::Duration::from_nanos(500));
                     time = Instant::now();
                     initialTime = s.time;
                     totalsteps = s.steps;
@@ -70,6 +81,10 @@ async fn main() {
                 nsPerStep = ((s.time * 1_000_000_000.0) / s.steps as f64) as u64;
                 if s.steps > 0 {
                     s.steps -= 1;
+                    step_pin.set_value(true).expect("could not set step_pin");
+                    time::sleep(time::Duration::from_nanos(500));
+                    step_pin.set_value(false).expect("could not set step_pin");
+                    time::sleep(time::Duration::from_nanos(500));
                     let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                     s.progress = (prog * 100.0) as i32;
                     s.ml = (totalsteps as f64 / stepsPerMl as f64) - (totalsteps as f64 / stepsPerMl as f64) * prog;
@@ -81,6 +96,7 @@ async fn main() {
                 }
             }
             else {
+                enable_pin.set_value(true).expect("could not set enable_pin");
                 initial = true;
                 nsPerStep = 500_000_000;
                 wasEnabled = false;
