@@ -1,0 +1,23 @@
+name: Build and upload to home RPI
+on: [workflow_dispatch]
+env:
+  PATH: "/root/.cargo/bin:$PATH"
+  IP: ${{ secrets.IP }}
+  RSYNC_PASSWORD: ${{ secrets.PASSWORD }}
+jobs:
+  Build and upload to RPI:
+    runs-on: debian
+    steps:
+      - run: apt-get update && apt install -y curl gcc-arm-linux-gnueabihf gcc rsync
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - run: rustup target add armv7-unknown-linux-gnueabihf
+      - run: cargo build --target armv7-unknown-linux-gnueabihf
+      - run: rsync target/armv7-unknown-linux-gnueabihf/debug/controller-rpi skrcka@IP
