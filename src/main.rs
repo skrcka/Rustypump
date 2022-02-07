@@ -14,6 +14,7 @@ use std::time::{Instant};
 const ENABLEPIN : u16 = 23; // Green
 const DIRPIN : u16 = 24; // Blue
 const STEPPIN : u16 = 25; // Purple
+const PINSLEEP : u64 = 500; // Purple
 
 mod routes;
 mod handlers;
@@ -21,10 +22,10 @@ mod models;
 
 pub type StateMutex = Arc<Mutex<models::State>>;
 
-async fn sleep_interrupt(sp : StateMutex, wasEnabled : bool) {
+async fn sleep_interrupt(sp : StateMutex, prevMode : i32) {
     loop {
         let mut s = sp.lock().await;
-        if wasEnabled != s.enabled {
+        if prevMode != s.mode {
             return;
         }
         time::sleep(Duration::from_millis(500));
@@ -33,7 +34,7 @@ async fn sleep_interrupt(sp : StateMutex, wasEnabled : bool) {
 
 #[tokio::main]
 async fn main() {
-    let state = models::State{enabled: false, ml: 0.0, progress: 100, time: 0.0, steps: 0};
+    let state = models::State{mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0};
     let statepointer : StateMutex = Arc::new(Mutex::new(state));
     let sp = statepointer.clone();
     let cors = warp::cors()
@@ -60,38 +61,38 @@ async fn main() {
         let mut initial = true;
         let mut nsPerStep: u64 = 500_000_000;
         let mut elapsedNs: u128 = 0;
-        let mut wasEnabled: bool = false;
+        let mut prevMode: i32 = 0;
         loop {
             let mut s = sp.lock().await;
-            if s.enabled {
-                wasEnabled = true;
+            if s.mode == 1 {
+                prevMode = 1;
                 if initial {
                     enable_pin.set_value(false).expect("could not set enable_pin");
-                    time::sleep(time::Duration::from_nanos(500));
+                    time::sleep(time::Duration::from_nanos(PINSLEEP));
                     time = Instant::now();
                     initialTime = s.time;
                     totalsteps = s.steps;
                     initial = false;
-                    nsPerStep = ((initialTime * 1_000_000_000.0) / totalsteps as f64) as u64;
-                    println!("starting wait: {} totalsteps: {} time: {}", nsPerStep, totalsteps, initialTime);
+                    let nsSpeedCalc = ((initialTime * 1_000_000_000.0) / totalsteps as f64 - (PINSLEEP * 2) as f64);
+                    nsPerStep = if nsSpeedCalc > 0.0  {nsSpeedCalc as u64} else {0};
                 }
                 let elapsed = time.elapsed();
                 elapsedNs = elapsed.as_nanos();
                 s.time = initialTime - (elapsedNs as f64 / 1_000_000_000.0);
-                nsPerStep = ((s.time * 1_000_000_000.0) / s.steps as f64) as u64;
+                let nsSpeedCalc = ((initialTime * 1_000_000_000.0) / totalsteps as f64 - (PINSLEEP * 2) as f64);
+                nsPerStep = if nsSpeedCalc > 0.0  {nsSpeedCalc as u64} else {0};
                 if s.steps > 0 {
                     s.steps -= 1;
                     step_pin.set_value(true).expect("could not set step_pin");
-                    time::sleep(time::Duration::from_nanos(500));
+                    time::sleep(time::Duration::from_nanos(PINSLEEP));
                     step_pin.set_value(false).expect("could not set step_pin");
-                    time::sleep(time::Duration::from_nanos(500));
+                    time::sleep(time::Duration::from_nanos(PINSLEEP));
                     let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                     s.progress = (prog * 100.0) as i32;
                     s.ml = (totalsteps as f64 / stepsPerMl as f64) - (totalsteps as f64 / stepsPerMl as f64) * prog;
-                    println!("timeleft {} elapsedns {} steps {} totalsteps {} progress {}", s.time, elapsedNs, s.steps, totalsteps, s.progress);
                 }
                 else{
-                    s.enabled = false;
+                    s.mode = 0;
                     s.time = 0.0;
                 }
             }
@@ -99,7 +100,7 @@ async fn main() {
                 enable_pin.set_value(true).expect("could not set enable_pin");
                 initial = true;
                 nsPerStep = 500_000_000;
-                wasEnabled = false;
+                prevMode = 0;
             }
             drop(s);
             let sleep = time::sleep(Duration::from_nanos(nsPerStep));
@@ -109,7 +110,7 @@ async fn main() {
                     _ = &mut sleep => {
                         break;
                     }
-                    _ = sleep_interrupt(sp.clone(), wasEnabled) => {
+                    _ = sleep_interrupt(sp.clone(), prevMode) => {
                         break;
                     }
                 }

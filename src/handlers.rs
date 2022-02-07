@@ -16,7 +16,7 @@ pub async fn live_status(state: StateMutex) -> Result<impl warp::Reply, Infallib
 
 pub async fn stop(state: StateMutex) -> Result<impl warp::Reply, Infallible> {
     let mut state = state.lock().await;
-    state.enabled = false;
+    state.mode = 0;
     Ok(StatusCode::OK)
 }
 
@@ -29,7 +29,7 @@ pub async fn update_status(
     state.ml = ml as f64;
     state.steps = (ml * stepsPerMl as f64) as i32;
     state.time = time as f64;
-    state.enabled = true;
+    state.mode = 1;
 
     Ok(StatusCode::OK)
 }

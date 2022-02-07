@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-pub const stepsPerMl: i32 = 20;
+pub const stepsPerMl: i32 = 500;
 
 /// Represents a customer
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct State {
-    pub enabled: bool,
+    pub mode: i32,  // 0 disabled, 1 default
     pub ml: f64,
     pub progress: i32,
     pub time: f64,
