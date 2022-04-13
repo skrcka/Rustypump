@@ -3,6 +3,7 @@ on: [workflow_dispatch]
 env:
   PATH: "/root/.cargo/bin:$PATH"
   IP: ${{ secrets.IP }}
+  PORT: ${{ secrets.PORT }}
   RSYNC_PASSWORD: ${{ secrets.PASSWORD }}
 jobs:
   Build and upload to RPI:
@@ -20,4 +21,4 @@ jobs:
           ls ${{ github.workspace }}
       - run: rustup target add armv7-unknown-linux-gnueabihf
       - run: cargo build --target armv7-unknown-linux-gnueabihf
-      - run: rsync target/armv7-unknown-linux-gnueabihf/debug/controller-rpi skrcka@IP
+      - run: rsync -avP -e 'ssh -p $PORT' target/armv7-unknown-linux-gnueabihf/debug/controller-rpi skrcka@$IP

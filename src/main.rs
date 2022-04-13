@@ -11,9 +11,9 @@ use tokio::time::{self, sleep, Duration};
 use warp::Filter;
 use std::time::{Instant};
 
-const ENABLEPIN : u16 = 23; // Green
-const DIRPIN : u16 = 24; // Blue
-const STEPPIN : u16 = 25; // Purple
+const ENABLEPIN : u16 = 21; // Green
+const DIRPIN : u16 = 16; // Blue
+const STEPPIN : u16 = 20; // Purple
 const PINSLEEP : u64 = 500; // Purple
 
 mod routes;
