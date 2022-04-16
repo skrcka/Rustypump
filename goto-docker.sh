@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run -v $PWD:/project -it builder
+docker run -v $PWD:/project -it builder2

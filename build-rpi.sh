@@ -1,2 +1,2 @@
 #!/bin/bash
-cargo build --target armv7-unknown-linux-gnueabihf
+cargo build --target aarch64-unknown-linux-gnu
