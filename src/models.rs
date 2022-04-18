@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 /// Represents a customer
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct State {
-    pub mode: i32,  // 0 disabled, 1 default
+    pub running: bool,
+    pub mode: i32,  // 1 default, 2 asap mode
     pub ml: f64,
     pub progress: i32,
     pub time: f64,

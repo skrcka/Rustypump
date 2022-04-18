@@ -23,10 +23,10 @@ mod models;
 
 pub type StateMutex = Arc<Mutex<models::State>>;
 
-async fn sleep_interrupt(sp : StateMutex, prev_mode : i32) {
+async fn sleep_interrupt(sp : StateMutex, prev_running : bool) {
     loop {
         let s = sp.lock().await;
-        if prev_mode != s.mode {
+        if prev_running != s.running {
             return;
         }
         time::sleep(Duration::from_millis(500)).await;
@@ -38,7 +38,7 @@ async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
+    let mut state = models::State{running: false, mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getint("main", "syringe_size").unwrap().unwrap() as i32;
 
@@ -65,46 +65,73 @@ async fn main() {
         let mut initial_time: f64 = 0.0;
         let sp = statepointer.clone();
         let mut initial = true;
-        let mut ns_per_step: u64;
+        let mut ns_per_step: u64 = 500_000_000;
         let mut elapsed_ns: u128;
-        let mut prev_mode: i32;
+        let mut prev_running: bool = false;
         loop {
             let mut s = sp.lock().await;
-            if s.mode == 1 {
-                prev_mode = 1;
-                if initial {
-                    enable_pin.set_value(false).expect("could not set enable_pin");
-                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
-                    time = Instant::now();
-                    initial_time = s.time;
-                    totalsteps = s.steps;
-                    initial = false;
+            if s.running{
+                if s.mode == 1 {
+                    if initial {
+                        prev_running = true;
+                        enable_pin.set_value(false).expect("could not set enable_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        time = Instant::now();
+                        initial_time = s.time;
+                        totalsteps = s.steps;
+                        initial = false;
+                    }
+                    let elapsed = time.elapsed();
+                    elapsed_ns = elapsed.as_nanos();
+                    s.time = initial_time - (elapsed_ns as f64 / 1_000_000_000.0);
+                    let ns_speed_calc = (initial_time * 1_000_000_000.0) / totalsteps as f64 - (PINSLEEP * 2) as f64;
+                    ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
+                    if s.steps > 0 {
+                        s.steps -= 1;
+                        step_pin.set_value(true).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        step_pin.set_value(false).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
+                        s.progress = (prog * 100.0) as i32;
+                        s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                    }
+                    else{
+                        s.running = false;
+                        s.time = 0.0;
+                    }
                 }
-                let elapsed = time.elapsed();
-                elapsed_ns = elapsed.as_nanos();
-                s.time = initial_time - (elapsed_ns as f64 / 1_000_000_000.0);
-                let ns_speed_calc = (initial_time * 1_000_000_000.0) / totalsteps as f64 - (PINSLEEP * 2) as f64;
-                ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
-                if s.steps > 0 {
-                    s.steps -= 1;
-                    step_pin.set_value(true).expect("could not set step_pin");
-                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
-                    step_pin.set_value(false).expect("could not set step_pin");
-                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
-                    let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
-                    s.progress = (prog * 100.0) as i32;
-                    s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
-                }
-                else{
-                    s.mode = 0;
-                    s.time = 0.0;
+                else if s.mode == 2 {
+                    if initial {
+                        prev_running = true;
+                        enable_pin.set_value(false).expect("could not set enable_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        ns_per_step = 0;
+                        initial = false;
+                    }
+                    
+                    if s.steps > 0 {
+                        s.steps -= 1;
+
+                        step_pin.set_value(true).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        step_pin.set_value(false).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+
+                        let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
+                        s.progress = (prog * 100.0) as i32;
+                        s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                    }
+                    else{
+                        s.running = false;
+                    }
                 }
             }
             else {
                 enable_pin.set_value(true).expect("could not set enable_pin");
                 initial = true;
                 ns_per_step = 500_000_000;
-                prev_mode = 0;
+                prev_running = false;
             }
             drop(s);
             let sleep = time::sleep(Duration::from_nanos(ns_per_step));
@@ -114,7 +141,7 @@ async fn main() {
                     _ = &mut sleep => {
                         break;
                     }
-                    _ = sleep_interrupt(sp.clone(), prev_mode) => {
+                    _ = sleep_interrupt(sp.clone(), prev_running) => {
                         break;
                     }
                 }
