@@ -21,14 +21,29 @@ pub async fn stop(state: StateMutex) -> Result<impl warp::Reply, Infallible> {
 }
 
 pub async fn update_status(
-    content: (i32, f64, f64),
+    content: (i32, bool, f64, f64),
     state: StateMutex,
 ) -> Result<impl warp::Reply, Infallible> {
     let mut state = state.lock().await;
-    let (mode, ml, time) = content;
+    let (mode, pull, ml, time_rate) = content;
     state.ml = ml as f64;
     state.steps = (ml * state.steps_per_ml as f64) as i32;
-    state.time = time as f64;
+    state.time_rate = time_rate as f64;
+    state.pull = pull;
+    state.mode = mode;
+    state.running = true;
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn manual_move(
+    content: (i32, i32, bool),
+    state: StateMutex,
+) -> Result<impl warp::Reply, Infallible> {
+    let mut state = state.lock().await;
+    let (mode, steps, pull) = content;
+    state.steps = steps;
+    state.pull = pull;
     state.mode = mode;
     state.running = true;
 

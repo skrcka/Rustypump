@@ -38,7 +38,7 @@ async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getint("main", "syringe_size").unwrap().unwrap() as i32;
 
@@ -71,40 +71,97 @@ async fn main() {
         loop {
             let mut s = sp.lock().await;
             if s.running{
+                if initial {
+                    prev_running = true;
+                    
+                    enable_pin.set_value(false).expect("could not set enable_pin");
+                    dir_pin.set_value(s.pull).expect("could not set dir_pin");
+                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                }
+                // ml/time mode
                 if s.mode == 1 {
                     if initial {
-                        prev_running = true;
-                        enable_pin.set_value(false).expect("could not set enable_pin");
-                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
                         time = Instant::now();
-                        initial_time = s.time;
+                        initial_time = s.time_rate;
                         totalsteps = s.steps;
                         initial = false;
                     }
                     let elapsed = time.elapsed();
                     elapsed_ns = elapsed.as_nanos();
-                    s.time = initial_time - (elapsed_ns as f64 / 1_000_000_000.0);
-                    let ns_speed_calc = (initial_time * 1_000_000_000.0) / totalsteps as f64 - (PINSLEEP * 2) as f64;
+                    s.time_rate = initial_time - (elapsed_ns as f64 / 1_000_000_000.0);
+                    let ns_speed_calc = (s.time_rate * 1_000_000_000.0) / s.steps as f64 - (PINSLEEP * 2) as f64;
                     ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
                     if s.steps > 0 {
                         s.steps -= 1;
+
                         step_pin.set_value(true).expect("could not set step_pin");
                         time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
                         step_pin.set_value(false).expect("could not set step_pin");
                         time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+
                         let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                         s.progress = (prog * 100.0) as i32;
                         s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
                     }
                     else{
                         s.running = false;
-                        s.time = 0.0;
+                        s.time_rate = 0.0;
                     }
                 }
+                // asap mode
                 else if s.mode == 2 {
                     if initial {
-                        prev_running = true;
-                        enable_pin.set_value(false).expect("could not set enable_pin");
+                        ns_per_step = 0;
+                        totalsteps = s.steps;
+                        initial = false;
+                    }
+                    
+                    if s.steps > 0 {
+                        s.steps -= 1;
+
+                        step_pin.set_value(true).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        step_pin.set_value(false).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+
+                        let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
+                        s.progress = (prog * 100.0) as i32;
+                        s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                    }
+                    else{
+                        s.running = false;
+                    }
+                }
+                // rate mode
+                else if s.mode == 3 {
+                    if initial {
+                        let ns_speed_calc = ( 1_000_000_000.0 / (s.time_rate * s.steps_per_ml as f64) ) - (2 * PINSLEEP) as f64;
+                        ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
+                        totalsteps = s.steps;
+                        initial = false;
+                    }
+                    
+                    if s.steps > 0 {
+                        s.steps -= 1;
+
+                        step_pin.set_value(true).expect("could not set step_pin"); // await maybe
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        step_pin.set_value(false).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+
+                        let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
+                        s.progress = (prog * 100.0) as i32;
+                        s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                    }
+                    else{
+                        s.time_rate = 0.0;
+                        s.running = false;
+                    }
+                }
+                // calibration mode
+                else if s.mode == 4 {
+                    if initial {
+                        dir_pin.set_value(false).expect("could not set dir_pin");
                         time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
                         ns_per_step = 0;
                         initial = false;
@@ -125,6 +182,42 @@ async fn main() {
                     else{
                         s.running = false;
                     }
+                }
+                // manual mode
+                else if s.mode == 5 {
+                    if initial {
+                        ns_per_step = 0;
+                        initial = false;
+                    }
+                    
+                    if s.steps > 0 {
+                        s.steps -= 1;
+
+                        step_pin.set_value(true).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                        step_pin.set_value(false).expect("could not set step_pin");
+                        time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+
+                        let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
+                        s.progress = (prog * 100.0) as i32;
+                    }
+                    else{
+                        s.running = false;
+                    }
+                }
+                // keep moving mode
+                else if s.mode == 6 {
+                    if initial {
+                        ns_per_step = 0;
+                        initial = false;
+                    }
+                    step_pin.set_value(true).expect("could not set step_pin");
+                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                    step_pin.set_value(false).expect("could not set step_pin");
+                    time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
+                }
+                else{
+                    println!("Unsupported mode!");
                 }
             }
             else {

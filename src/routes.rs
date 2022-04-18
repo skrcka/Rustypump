@@ -11,6 +11,7 @@ pub fn routes(
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     get_status(state.clone())
         .or(update_status(state.clone()))
+        .or(manual_move(state.clone()))
         .or(update_config(state.clone(), config.clone()))
         .or(stop(state.clone()))
         .or(live_status(state.clone()))
@@ -54,6 +55,16 @@ fn update_status(
         .and_then(handlers::update_status)
 }
 
+fn manual_move(
+    state: StateMutex,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("manual_move")
+        .and(warp::post())
+        .and(json_manual_body())
+        .and(with_state(state))
+        .and_then(handlers::manual_move)
+}
+
 fn update_config(
     state: StateMutex,
     config: Ini,
@@ -74,7 +85,12 @@ fn with_config(config: Ini) -> impl Filter<Extract = (Ini,), Error = Infallible>
     warp::any().map(move || config.clone())
 }
 
-fn json_body() -> impl Filter<Extract = ((i32, f64, f64),), Error = warp::Rejection> + Clone {
+fn json_body() -> impl Filter<Extract = ((i32, bool, f64, f64),), Error = warp::Rejection> + Clone {
+    warp::body::content_length_limit(1024 * 16)
+    .and(warp::body::json())
+}
+
+fn json_manual_body() -> impl Filter<Extract = ((i32, i32, bool),), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16)
     .and(warp::body::json())
 }
