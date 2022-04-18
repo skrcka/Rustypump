@@ -134,15 +134,17 @@ async fn main() {
                 prev_running = false;
             }
             drop(s);
-            let sleep = time::sleep(Duration::from_nanos(ns_per_step));
-            tokio::pin!(sleep);
-            loop {
-                tokio::select! {
-                    _ = &mut sleep => {
-                        break;
-                    }
-                    _ = sleep_interrupt(sp.clone(), prev_running) => {
-                        break;
+            if ns_per_step > 0{
+                let sleep = time::sleep(Duration::from_nanos(ns_per_step));
+                tokio::pin!(sleep);
+                loop {
+                    tokio::select! {
+                        _ = &mut sleep => {
+                            break;
+                        }
+                        _ = sleep_interrupt(sp.clone(), prev_running) => {
+                            break;
+                        }
                     }
                 }
             }
