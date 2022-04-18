@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use warp::{self, http::StatusCode};
 use crate::StateMutex;
-use crate::models::stepsPerMl;
+use crate::models::STEPS_PER_ML;
 
 pub async fn get_status(state: StateMutex) -> Result<impl warp::Reply, Infallible> {
     let state = state.lock().await;
@@ -27,7 +27,7 @@ pub async fn update_status(
     let mut state = state.lock().await;
     let (ml, time) = ml_time;
     state.ml = ml as f64;
-    state.steps = (ml * stepsPerMl as f64) as i32;
+    state.steps = (ml * STEPS_PER_ML as f64) as i32;
     state.time = time as f64;
     state.mode = 1;
 

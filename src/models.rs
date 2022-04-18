@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const stepsPerMl: i32 = 500;
+pub const STEPS_PER_ML: i32 = 500;
 
 /// Represents a customer
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
