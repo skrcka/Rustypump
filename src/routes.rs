@@ -1,14 +1,17 @@
 use std::convert::Infallible;
 use warp::{self, Filter};
+use configparser::ini::Ini;
 
 use crate::StateMutex;
 use crate::handlers;
 
 pub fn routes(
     state: StateMutex,
+    config: Ini,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     get_status(state.clone())
         .or(update_status(state.clone()))
+        .or(update_config(state.clone(), config.clone()))
         .or(stop(state.clone()))
         .or(live_status(state.clone()))
 }
@@ -51,11 +54,32 @@ fn update_status(
         .and_then(handlers::update_status)
 }
 
+fn update_config(
+    state: StateMutex,
+    config: Ini,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("update_config")
+        .and(warp::post())
+        .and(json_config_body())
+        .and(with_state(state))
+        .and(with_config(config))
+        .and_then(handlers::update_config)
+}
+
 fn with_state(state: StateMutex) -> impl Filter<Extract = (StateMutex,), Error = Infallible> + Clone {
     warp::any().map(move || state.clone())
 }
 
-fn json_body() -> impl Filter<Extract = ((f64, f64),), Error = warp::Rejection> + Clone {
+fn with_config(config: Ini) -> impl Filter<Extract = (Ini,), Error = Infallible> + Clone {
+    warp::any().map(move || config.clone())
+}
+
+fn json_body() -> impl Filter<Extract = ((i32, f64, f64),), Error = warp::Rejection> + Clone {
+    warp::body::content_length_limit(1024 * 16)
+    .and(warp::body::json())
+}
+
+fn json_config_body() -> impl Filter<Extract = ((i32, i32),), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16)
     .and(warp::body::json())
 }

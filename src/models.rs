@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub const STEPS_PER_ML: i32 = 500;
 
 /// Represents a customer
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -10,4 +9,6 @@ pub struct State {
     pub progress: i32,
     pub time: f64,
     pub steps: i32,
+    pub steps_per_ml: i32,
+    pub syringe_size: i32,
 }

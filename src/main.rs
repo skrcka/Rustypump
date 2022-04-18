@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 use tokio::time::{self, Duration};
 use warp::Filter;
 use std::time::{Instant};
+use configparser::ini::Ini;
 
 const ENABLEPIN : u16 = 21; // Green
 const DIRPIN : u16 = 16; // Blue
@@ -34,15 +35,20 @@ async fn sleep_interrupt(sp : StateMutex, prev_mode : i32) {
 
 #[tokio::main]
 async fn main() {
-    let state = models::State{mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0};
+    let mut config = Ini::new();
+    let _configmap = config.load("/home/skrcka/config.ini").unwrap();
+
+    let mut state = models::State{mode: 0, ml: 0.0, progress: 100, time: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
+    state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
+    state.syringe_size = config.getint("main", "syringe_size").unwrap().unwrap() as i32;
+
     let statepointer : StateMutex = Arc::new(Mutex::new(state));
-    let sp = statepointer.clone();
+
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["User-Agent", "content-type", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"])
         .allow_methods(vec!["POST", "GET"]);
-    let routes = routes::routes(sp).with(cors);
-    let steps_per_ml = models::STEPS_PER_ML;
+    let routes = routes::routes(statepointer.clone(), config.clone()).with(cors);
 
     tokio::spawn(async move {
         let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
@@ -87,7 +93,7 @@ async fn main() {
                     time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
                     let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                     s.progress = (prog * 100.0) as i32;
-                    s.ml = (totalsteps as f64 / steps_per_ml as f64) - (totalsteps as f64 / steps_per_ml as f64) * prog;
+                    s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
                 }
                 else{
                     s.mode = 0;
@@ -119,42 +125,4 @@ async fn main() {
     warp::serve(routes)
         .run(([0, 0, 0, 0], 5000))
         .await;
-
-    
-
-    /*
-    thread::spawn(move || {
-        let mut steps : i32 = 0;
-        let mut enabled = true;
-        let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
-        let mut dir_pin = gpio::sysfs::SysFsGpioOutput::open(DIRPIN).unwrap(); // False = push
-        let mut step_pin = gpio::sysfs::SysFsGpioOutput::open(STEPPIN).unwrap();
-        
-        enable_pin.set_value(true).expect("could not set enable_pin");
-        dir_pin.set_value(false).expect("could not set dir_pin");
-        step_pin.set_value(false).expect("could not set step_pin");
-        
-        loop {
-            if steps > 0 {
-                println!("{}", steps);
-                if enabled == false {
-                    enabled = true;
-                    enable_pin.set_value(false).expect("could not set enable_pin");
-                    thread::sleep(time::Duration::from_millis(500));
-                }
-                step_pin.set_value(true).expect("could not set step_pin");
-                thread::sleep(time::Duration::from_millis(500));
-                step_pin.set_value(false).expect("could not set step_pin");
-                thread::sleep(time::Duration::from_millis(500));
-                steps -= 1;
-            } else {
-                if enabled == true {
-                    enabled = false;
-                    enable_pin.set_value(true).expect("could not set enable_pin");
-                    thread::sleep(time::Duration::from_millis(500));
-                }
-            }
-        }
-    });
-    */
 }
