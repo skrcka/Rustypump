@@ -85,7 +85,7 @@ fn with_config(config: Ini) -> impl Filter<Extract = (Ini,), Error = Infallible>
     warp::any().map(move || config.clone())
 }
 
-fn json_body() -> impl Filter<Extract = ((i32, bool, f64, i32, f64),), Error = warp::Rejection> + Clone {
+fn json_body() -> impl Filter<Extract = ((i32, bool, f64, i32, f64, i32),), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16)
     .and(warp::body::json())
 }

@@ -21,11 +21,11 @@ pub async fn stop(state: StateMutex) -> Result<impl warp::Reply, Infallible> {
 }
 
 pub async fn update_status(
-    content: (i32, bool, f64, i32, f64),
+    content: (i32, bool, f64, i32, f64, i32),
     state: StateMutex,
 ) -> Result<impl warp::Reply, Infallible> {
     let mut state = state.lock().await;
-    let (mode, pull, volume, volume_unit, time_rate) = content;
+    let (mode, pull, volume, volume_unit, time_rate, time_rate_unit) = content;
     if volume_unit == 0 {
         state.ml = volume;
     }
@@ -36,7 +36,20 @@ pub async fn update_status(
         state.ml = volume / 1_000_000.0;
     }
     state.steps = (state.ml * state.steps_per_ml as f64) as i32;
-    state.time_rate = time_rate as f64;
+    if mode == 1 {
+        state.time_rate = time_rate as f64;
+    }
+    if mode == 3 {
+        if time_rate_unit == 0 {
+            state.time_rate = time_rate;
+        }
+        else if time_rate_unit == 1 {
+            state.time_rate = time_rate / 1000.0;
+        }
+        else if time_rate_unit == 2 {
+            state.time_rate = time_rate / 1_000_000.0;
+        }
+    }
     state.pull = pull;
     state.mode = mode;
     state.running = true;
