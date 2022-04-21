@@ -38,15 +38,15 @@ async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
-    state.syringe_size = config.getint("main", "syringe_size").unwrap().unwrap() as i32;
+    state.syringe_size = config.getfloat("main", "syringe_size").unwrap().unwrap() as f64;
 
     let statepointer : StateMutex = Arc::new(Mutex::new(state));
 
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_headers(vec!["User-Agent", "content-type", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"])
+        .allow_headers(vec!["User-Agent", "content-type", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Access-Control-Allow-Origin"])
         .allow_methods(vec!["POST", "GET"]);
     let routes = routes::routes(statepointer.clone(), config.clone()).with(cors);
 

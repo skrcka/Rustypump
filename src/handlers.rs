@@ -72,7 +72,7 @@ pub async fn manual_move(
 }
 
 pub async fn update_config(
-    content: (i32, i32),
+    content: (i32, f64),
     state: StateMutex,
     config: Ini,
 ) -> Result<impl warp::Reply, Infallible> {

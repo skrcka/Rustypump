@@ -95,7 +95,7 @@ fn json_manual_body() -> impl Filter<Extract = ((i32, bool, i32),), Error = warp
     .and(warp::body::json())
 }
 
-fn json_config_body() -> impl Filter<Extract = ((i32, i32),), Error = warp::Rejection> + Clone {
+fn json_config_body() -> impl Filter<Extract = ((i32, f64),), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16)
     .and(warp::body::json())
 }

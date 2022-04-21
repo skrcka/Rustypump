@@ -12,5 +12,5 @@ pub struct State {
     pub time_rate: f64,
     pub steps: i32,
     pub steps_per_ml: i32,
-    pub syringe_size: i32,
+    pub syringe_size: f64,
 }
