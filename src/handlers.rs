@@ -85,3 +85,12 @@ pub async fn update_config(
 
     Ok(StatusCode::OK)
 }
+
+pub async fn screen_lock(
+    state: StateMutex,
+) -> Result<impl warp::Reply, Infallible> {
+    let mut state = state.lock().await;
+    state.screen_lock = !state.screen_lock;
+
+    Ok(StatusCode::OK)
+}
