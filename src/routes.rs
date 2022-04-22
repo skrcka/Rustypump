@@ -13,6 +13,7 @@ pub fn routes(
         .or(update_status(state.clone()))
         .or(manual_move(state.clone()))
         .or(screen_lock(state.clone()))
+        .or(pause(state.clone()))
         .or(update_config(state.clone(), config.clone()))
         .or(stop(state.clone()))
         .or(live_status(state.clone()))
@@ -73,6 +74,15 @@ fn screen_lock(
         .and(warp::get())
         .and(with_state(state))
         .and_then(handlers::screen_lock)
+}
+
+fn pause(
+    state: StateMutex,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("pause")
+        .and(warp::get())
+        .and(with_state(state))
+        .and_then(handlers::pause)
 }
 
 fn update_config(

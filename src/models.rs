@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 
-/// Represents a customer
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct State {
     pub running: bool,
     pub mode: i32,  // 1 ml/time mode, 2 asap mode, 3 rate mode
@@ -14,4 +13,6 @@ pub struct State {
     pub steps_per_ml: i32,
     pub syringe_size: f64,
     pub screen_lock: bool,
+    pub ip: String,
+    pub pause: bool,
 }

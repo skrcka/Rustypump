@@ -94,3 +94,10 @@ pub async fn screen_lock(
 
     Ok(StatusCode::OK)
 }
+
+pub async fn pause(
+    state: StateMutex,
+) -> Result<impl warp::Reply, Infallible> {
+    let mut state = state.lock().await;
+    state.pause = !state.pause
+}
