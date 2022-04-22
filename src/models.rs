@@ -12,7 +12,6 @@ pub struct State {
     pub steps: i32,
     pub steps_per_ml: i32,
     pub syringe_size: f64,
-    pub screen_lock: bool,
     pub ip: String,
     pub pause: bool,
 }

@@ -35,19 +35,12 @@ async fn sleep_interrupt(sp : StateMutex, prev_running : bool) {
     }
 }
 
-/*
-async fn changeScreenLock(sp: StateMutex){
-    let s = sp.lock().await;
-    s.screen_lock = !s.screen_lock;
-}
-*/
-
 #[tokio::main]
 async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, screen_lock: false, ip: local_ip().unwrap().to_string(), pause: false};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getfloat("main", "syringe_size").unwrap().unwrap() as f64;
 
@@ -78,8 +71,6 @@ async fn main() {
         let mut ns_per_step: u64 = 500_000_000;
         let mut elapsed_ns: u128;
         let mut prev_running: bool = false;
-
-        //key_pin.set_async_interrupt(RisingEdge, changeScreenLock(sp.clone()));
 
         loop {
             let mut s = sp.lock().await;
