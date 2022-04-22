@@ -40,9 +40,10 @@ async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, ml_in_pump: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getfloat("main", "syringe_size").unwrap().unwrap() as f64;
+    state.ml_in_pump = config.getfloat("state", "ml_in_pump").unwrap().unwrap() as f64;
 
     let statepointer : StateMutex = Arc::new(Mutex::new(state));
 
@@ -78,7 +79,7 @@ async fn main() {
                 if !s.pause {
                     if initial {
                         prev_running = true;
-                        
+
                         enable_pin.set_value(false).expect("could not set enable_pin");
                         dir_pin.set_value(s.pull).expect("could not set dir_pin");
                         time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
@@ -107,8 +108,12 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
                         }
                         else{
+                            config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
+                            config.write("/home/skrcka/config.ini").unwrap();
+
                             s.running = false;
                             s.time_rate = 0.0;
                         }
@@ -132,8 +137,12 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
                         }
                         else{
+                            config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
+                            config.write("/home/skrcka/config.ini").unwrap();
+
                             s.running = false;
                         }
                     }
@@ -157,8 +166,12 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
+                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
                         }
                         else{
+                            config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
+                            config.write("/home/skrcka/config.ini").unwrap();
+
                             s.time_rate = 0.0;
                             s.running = false;
                         }
@@ -205,8 +218,12 @@ async fn main() {
 
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
+                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
                         }
                         else{
+                            config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
+                            config.write("/home/skrcka/config.ini").unwrap();
+
                             s.running = false;
                         }
                     }
@@ -242,6 +259,14 @@ async fn main() {
                             break;
                         }
                         _ = sleep_interrupt(sp.clone(), prev_running) => {
+                            let s = sp.lock().await;
+
+                            if s.mode == 1 || s.mode == 2 || s.mode == 3 || s.mode == 5 {
+                                config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
+                                config.write("/home/skrcka/config.ini").unwrap();
+                            }
+                            drop(s);
+
                             break;
                         }
                     }

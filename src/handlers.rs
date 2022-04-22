@@ -72,14 +72,19 @@ pub async fn manual_move(
 }
 
 pub async fn update_config(
-    content: (i32, f64),
+    content: (i32, f64, f64),
     state: StateMutex,
-    config: Ini,
+    mut config: Ini,
 ) -> Result<impl warp::Reply, Infallible> {
     let mut state = state.lock().await;
-    let (steps_per_ml, syringe_size) = content;
+    let (steps_per_ml, syringe_size, ml_in_pump) = content;
     state.steps_per_ml = steps_per_ml;
     state.syringe_size = syringe_size;
+    state.ml_in_pump = ml_in_pump;
+    
+    config.set("main", "steps_per_ml", Some(steps_per_ml.to_string()));
+    config.set("main", "syringe_size", Some(syringe_size.to_string()));
+    config.set("state", "ml_in_pump", Some(ml_in_pump.to_string()));
 
     config.write("/home/skrcka/config.ini").unwrap();
 
@@ -90,5 +95,7 @@ pub async fn pause(
     state: StateMutex,
 ) -> Result<impl warp::Reply, Infallible> {
     let mut state = state.lock().await;
-    state.pause = !state.pause
+    state.pause = !state.pause;
+
+    Ok(StatusCode::OK)
 }

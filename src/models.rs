@@ -7,6 +7,7 @@ pub struct State {
     pub mode: i32,  // 1 ml/time mode, 2 asap mode, 3 rate mode
     pub pull: bool,
     pub ml: f64,
+    pub ml_in_pump: f64,
     pub progress: i32,
     pub time_rate: f64,
     pub steps: i32,
