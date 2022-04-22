@@ -16,6 +16,7 @@ const ENABLEPIN : u16 = 21; // Green
 const DIRPIN : u16 = 16; // Blue
 const STEPPIN : u16 = 20; // Purple
 const PINSLEEP : u64 = 500000; // Purple
+// const KEYPIN : u16 = 12; // KEY1
 
 mod routes;
 mod handlers;
@@ -33,12 +34,19 @@ async fn sleep_interrupt(sp : StateMutex, prev_running : bool) {
     }
 }
 
+/*
+async fn changeScreenLock(sp: StateMutex){
+    let s = sp.lock().await;
+    s.screen_lock = !s.screen_lock;
+}
+*/
+
 #[tokio::main]
 async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, screen_lock: false};
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getfloat("main", "syringe_size").unwrap().unwrap() as f64;
 
@@ -54,6 +62,7 @@ async fn main() {
         let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
         let mut dir_pin = gpio::sysfs::SysFsGpioOutput::open(DIRPIN).unwrap(); // False = push
         let mut step_pin = gpio::sysfs::SysFsGpioOutput::open(STEPPIN).unwrap();
+        //let mut key_pin = gpio::sysfs::SysFsGpioInput::open(KEYPIN).unwrap();
 
         enable_pin.set_value(true).expect("could not set enable_pin");
         dir_pin.set_value(false).expect("could not set dir_pin");
@@ -68,6 +77,9 @@ async fn main() {
         let mut ns_per_step: u64 = 500_000_000;
         let mut elapsed_ns: u128;
         let mut prev_running: bool = false;
+
+        //key_pin.set_async_interrupt(RisingEdge, changeScreenLock(sp.clone()));
+
         loop {
             let mut s = sp.lock().await;
             if s.running{
