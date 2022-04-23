@@ -15,4 +15,8 @@ pub struct State {
     pub syringe_size: f64,
     pub ip: String,
     pub pause: bool,
+    pub bolus_dose: f64,
+    pub active_bolus_dose: i32,
+    pub bolus_cooldown: f64,
+    pub active_bolus_cooldown: f64,
 }

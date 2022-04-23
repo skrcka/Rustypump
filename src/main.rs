@@ -40,9 +40,15 @@ async fn main() {
     let mut config = Ini::new();
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
-    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0, ml_in_pump: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0, syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false};
+    let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0,
+        ml_in_pump: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0,
+        syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false, 
+        bolus_dose: 0.0, active_bolus_dose: 0, bolus_cooldown: 0.0, active_bolus_cooldown: 0.0,
+    };
     state.steps_per_ml = config.getint("main", "steps_per_ml").unwrap().unwrap() as i32;
     state.syringe_size = config.getfloat("main", "syringe_size").unwrap().unwrap() as f64;
+    state.bolus_dose = config.getfloat("main", "bolus_dose").unwrap().unwrap() as f64;
+    state.bolus_cooldown = config.getfloat("main", "bolus_cooldown").unwrap().unwrap() as f64;
     state.ml_in_pump = config.getfloat("state", "ml_in_pump").unwrap().unwrap() as f64;
 
     let statepointer : StateMutex = Arc::new(Mutex::new(state));
@@ -66,6 +72,7 @@ async fn main() {
 
         let mut time: Instant = Instant::now();
         let mut totalsteps: i32 = 0;
+        let mut bolus_time: Instant = Instant::now();
         let mut initial_time: f64 = 0.0;
         let sp = statepointer.clone();
         let mut initial = true;
@@ -79,6 +86,8 @@ async fn main() {
                 if !s.pause {
                     if initial {
                         prev_running = true;
+
+                        s.active_bolus_cooldown = 0.0;
 
                         enable_pin.set_value(false).expect("could not set enable_pin");
                         dir_pin.set_value(s.pull).expect("could not set dir_pin");
@@ -99,6 +108,14 @@ async fn main() {
                         ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
                         if s.steps > 0 {
                             s.steps -= 1;
+                            if s.active_bolus_dose > 0 {
+                                if s.active_bolus_cooldown == 0.0 {
+                                    bolus_time = Instant::now();
+                                    s.active_bolus_cooldown = s.bolus_cooldown;
+                                }
+                                s.active_bolus_dose -= 1;
+                                s.active_bolus_cooldown -= bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
 
                             step_pin.set_value(true).expect("could not set step_pin");
                             time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
@@ -113,6 +130,8 @@ async fn main() {
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
                             config.write("/home/skrcka/config.ini").unwrap();
+
+                            s.active_bolus_dose = 0;
 
                             s.running = false;
                             s.time_rate = 0.0;
@@ -149,6 +168,9 @@ async fn main() {
                     // rate mode
                     else if s.mode == 3 {
                         if initial {
+                            time = Instant::now();
+                            initial_time = s.time_rate;
+
                             let ns_speed_calc = ( 1_000_000_000.0 / (s.time_rate * s.steps_per_ml as f64) ) - (2 * PINSLEEP) as f64;
                             ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
                             totalsteps = s.steps;
@@ -157,6 +179,14 @@ async fn main() {
                         
                         if s.steps > 0 {
                             s.steps -= 1;
+                            if s.active_bolus_dose > 0 {
+                                if s.active_bolus_cooldown == 0.0 {
+                                    bolus_time = Instant::now();
+                                    s.active_bolus_cooldown = s.bolus_cooldown;
+                                }
+                                s.active_bolus_dose -= 1;
+                                s.active_bolus_cooldown -= bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
 
                             step_pin.set_value(true).expect("could not set step_pin"); // await maybe
                             time::sleep(time::Duration::from_nanos(PINSLEEP)).await;
@@ -171,6 +201,8 @@ async fn main() {
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
                             config.write("/home/skrcka/config.ini").unwrap();
+
+                            s.active_bolus_dose = 0;
 
                             s.time_rate = 0.0;
                             s.running = false;
@@ -249,8 +281,17 @@ async fn main() {
                 ns_per_step = 500_000_000;
                 prev_running = false;
             }
+            if s.active_bolus_cooldown < 0.0 {
+                s.active_bolus_cooldown = 0.0;
+            }
+            if (s.mode != 1 || s.mode != 3) && s.active_bolus_dose > 0 {
+                s.active_bolus_dose = 0;
+            }
+            if s.active_bolus_dose > 0 {
+                ns_per_step = 0;
+            }
             drop(s);
-            if ns_per_step > 0{
+            if ns_per_step > 0 {
                 let sleep = time::sleep(Duration::from_nanos(ns_per_step));
                 tokio::pin!(sleep);
                 loop {
