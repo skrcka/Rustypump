@@ -125,7 +125,7 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
-                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
+                            s.ml_in_pump += if s.pull { 1.0 } else { -1.0 } / s.steps_per_ml as f64;
                         }
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
@@ -156,7 +156,7 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
-                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
+                            s.ml_in_pump += if s.pull { 1.0 } else { -1.0 } / s.steps_per_ml as f64;
                         }
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
@@ -196,7 +196,7 @@ async fn main() {
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
                             s.ml = (totalsteps as f64 / s.steps_per_ml as f64) - (totalsteps as f64 / s.steps_per_ml as f64) * prog;
-                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
+                            s.ml_in_pump += if s.pull { 1.0 } else { -1.0 } / s.steps_per_ml as f64;
                         }
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
@@ -250,7 +250,7 @@ async fn main() {
 
                             let prog = 1.0 - (s.steps as f64 / totalsteps as f64);
                             s.progress = (prog * 100.0) as i32;
-                            s.ml_in_pump -= 1.0 / s.steps_per_ml as f64;
+                            s.ml_in_pump += if s.pull { 1.0 } else { -1.0 } / s.steps_per_ml as f64;
                         }
                         else{
                             config.set("state", "ml_in_pump", Some(s.ml_in_pump.to_string()));
