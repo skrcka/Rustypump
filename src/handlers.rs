@@ -37,9 +37,14 @@ pub async fn update_status(
     }
     state.steps = (state.ml * state.steps_per_ml as f64) as i32;
     if mode == 1 {
-        state.time_rate = time_rate as f64;
+        if time_rate_unit == 0 {
+            state.time_rate = time_rate;
+        }
+        else if time_rate_unit == 1 {
+            state.time_rate = time_rate * 60.0;
+        }
     }
-    if mode == 3 {
+    else if mode == 3 {
         if time_rate_unit == 0 {
             state.time_rate = time_rate;
         }
