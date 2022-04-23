@@ -41,7 +41,7 @@ async fn main() {
     let _configmap = config.load("/home/skrcka/config.ini").unwrap();
 
     let mut state = models::State{running: false, mode: 0, pull: false, ml: 0.0,
-        ml_in_pump: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0,
+        ml_in_pump: 0.0, total_ml: 0.0, progress: 100, time_rate: 0.0, steps: 0, steps_per_ml: 0,
         syringe_size: 0.0, ip: local_ip().unwrap().to_string(), pause: false, 
         bolus_dose: 0.0, active_bolus_dose: 0, bolus_cooldown: 0.0, active_bolus_cooldown: 0.0,
     };
@@ -73,6 +73,7 @@ async fn main() {
         let mut time: Instant = Instant::now();
         let mut totalsteps: i32 = 0;
         let mut bolus_time: Instant = Instant::now();
+        let mut initial_bolus_time: f64 = 0.0;
         let mut initial_time: f64 = 0.0;
         let sp = statepointer.clone();
         let mut initial = true;
@@ -98,7 +99,9 @@ async fn main() {
                         if initial {
                             time = Instant::now();
                             initial_time = s.time_rate;
+                            initial_bolus_time = 0.0;
                             totalsteps = s.steps;
+                            s.total_ml = s.ml;
                             initial = false;
                         }
                         let elapsed = time.elapsed();
@@ -111,10 +114,16 @@ async fn main() {
                             if s.active_bolus_dose > 0 {
                                 if s.active_bolus_cooldown == 0.0 {
                                     bolus_time = Instant::now();
+                                    initial_bolus_time = s.bolus_cooldown;
                                     s.active_bolus_cooldown = s.bolus_cooldown;
                                 }
                                 s.active_bolus_dose -= 1;
-                                s.active_bolus_cooldown -= bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
+                            if s.active_bolus_cooldown > 0.0 {
+                                s.active_bolus_cooldown = initial_bolus_time - bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
+                            else if s.active_bolus_cooldown < 0.0 {
+                                s.active_bolus_cooldown = 0.0;
                             }
 
                             step_pin.set_value(true).expect("could not set step_pin");
@@ -142,6 +151,7 @@ async fn main() {
                         if initial {
                             ns_per_step = 0;
                             totalsteps = s.steps;
+                            s.total_ml = s.ml;
                             initial = false;
                         }
                         
@@ -170,6 +180,8 @@ async fn main() {
                         if initial {
                             time = Instant::now();
                             initial_time = s.time_rate;
+                            s.total_ml = s.ml;
+                            initial_bolus_time = 0.0;
 
                             let ns_speed_calc = ( 1_000_000_000.0 / (s.time_rate * s.steps_per_ml as f64) ) - (2 * PINSLEEP) as f64;
                             ns_per_step = if ns_speed_calc > 0.0  {ns_speed_calc as u64} else {0};
@@ -182,10 +194,16 @@ async fn main() {
                             if s.active_bolus_dose > 0 {
                                 if s.active_bolus_cooldown == 0.0 {
                                     bolus_time = Instant::now();
+                                    initial_bolus_time = s.bolus_cooldown;
                                     s.active_bolus_cooldown = s.bolus_cooldown;
                                 }
                                 s.active_bolus_dose -= 1;
-                                s.active_bolus_cooldown -= bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
+                            if s.active_bolus_cooldown > 0.0 {
+                                s.active_bolus_cooldown = initial_bolus_time - bolus_time.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+                            }
+                            else if s.active_bolus_cooldown < 0.0 {
+                                s.active_bolus_cooldown = 0.0;
                             }
 
                             step_pin.set_value(true).expect("could not set step_pin"); // await maybe
@@ -274,6 +292,10 @@ async fn main() {
                         println!("Unsupported mode!");
                     }
                 }
+                if s.pause && s.mode == 1 {
+                    time = Instant::now();
+                    initial_time = s.time_rate;
+                }
             }
             else {
                 enable_pin.set_value(true).expect("could not set enable_pin");
@@ -284,7 +306,7 @@ async fn main() {
             if s.active_bolus_cooldown < 0.0 {
                 s.active_bolus_cooldown = 0.0;
             }
-            if (s.mode != 1 || s.mode != 3) && s.active_bolus_dose > 0 {
+            if s.mode != 1 && s.mode != 3 && s.active_bolus_dose > 0 {
                 s.active_bolus_dose = 0;
             }
             if s.active_bolus_dose > 0 {

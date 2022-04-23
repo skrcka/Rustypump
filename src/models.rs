@@ -8,6 +8,7 @@ pub struct State {
     pub pull: bool,
     pub ml: f64,
     pub ml_in_pump: f64,
+    pub total_ml: f64,
     pub progress: i32,
     pub time_rate: f64,
     pub steps: i32,
