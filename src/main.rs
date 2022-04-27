@@ -31,6 +31,7 @@ async fn sleep_interrupt(sp : StateMutex, prev_running : bool) {
         if prev_running != s.running {
             return;
         }
+        drop(s);
         time::sleep(Duration::from_millis(500)).await;
     }
 }
@@ -58,6 +59,19 @@ async fn main() {
         .allow_headers(vec!["User-Agent", "content-type", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Access-Control-Allow-Origin"])
         .allow_methods(vec!["POST", "GET"]);
     let routes = routes::routes(statepointer.clone(), config.clone()).with(cors);
+
+    let sp2 = statepointer.clone();
+    tokio::spawn( async move {
+        loop {
+            let ip = local_ip().unwrap().to_string();
+            let mut s = sp2.lock().await;
+            if s.ip != ip {
+                s.ip = ip;
+            }
+            drop(s);
+            time::sleep(Duration::from_millis(10_000)).await;
+        }
+    });
 
     tokio::spawn(async move {
         let mut enable_pin = gpio::sysfs::SysFsGpioOutput::open(ENABLEPIN).unwrap();
