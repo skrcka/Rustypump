@@ -2,8 +2,8 @@
 Software designed for RPi 3B meant for controlling stepper driver via GPIO pins
 
 ## Links
-- Backend - [https://github.com/skrcka/ZP_server](https://github.com/skrcka/ZP_server)
-- Frontend - [https://github.com/skrcka/ZP_client](https://github.com/skrcka/ZP_client)
+- Backend - [https://github.com/skrcka/Rustypump](https://github.com/skrcka/Rustypump)
+- Frontend - [https://github.com/skrcka/Reactpump](https://github.com/skrcka/Reactpump)
 - Thesis - [https://www.overleaf.com/read/phstktcfyvdk](https://www.overleaf.com/read/phstktcfyvdk)
 
 ## Requirements
